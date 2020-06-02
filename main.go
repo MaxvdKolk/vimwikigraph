@@ -13,7 +13,9 @@ import (
 	"github.com/emicklei/dot"
 )
 
-const ext string = ".wiki"
+const wiki_ext string = ".wiki"
+const wikiref string = `\[\[([^\[\]]*)\]\]`
+const markdownref string = `\[(.*)\]\((.*)\)`
 
 type Wiki struct {
 	// Root directory of vimwiki structure
@@ -24,6 +26,10 @@ type Wiki struct {
 	remap map[string]string
 	// Enable clustered plotting of files in sub directories
 	cluster bool
+
+	// Contains all regular expressions to match links
+	wikilink     *regexp.Regexp
+	markdownlink *regexp.Regexp
 }
 
 func newWiki(dir string, remap map[string]string, cluster bool) *Wiki {
@@ -33,6 +39,7 @@ func newWiki(dir string, remap map[string]string, cluster bool) *Wiki {
 		graph:   make(map[string][]string),
 		cluster: cluster,
 	}
+	wiki.CompileExpressions()
 	return &wiki
 }
 
@@ -103,10 +110,108 @@ func (wiki *Wiki) Walk(subDirToSkip []string) error {
 	return err
 }
 
+func (wiki *Wiki) Insert(key, value string) {
+	// prevent (possibly many) duplicates
+	if unique(value, wiki.graph[key]) {
+		wiki.graph[key] = append(wiki.graph[key], value)
+	}
+}
+
+func (wiki *Wiki) Remap(dir, key, match string) (string, string) {
+
+	// joins current directory with link
+	match = filepath.Join(dir, match)
+
+	// apply remap naming, diary/file.wiki -> diary.wiki
+	for k, v := range wiki.remap {
+		if k == dir {
+			key = v
+		}
+		if strings.Contains(match, k) {
+			match = v
+		}
+	}
+
+	return key, match
+}
+
+// Compile compiles all regex to match links with
+func (wiki *Wiki) CompileExpressions() error {
+	wikilink, err := regexp.Compile(wikiref)
+	if err != nil {
+		return err
+	}
+	markdownlink, err := regexp.Compile(markdownref)
+	if err != nil {
+		return err
+	}
+	wiki.wikilink, wiki.markdownlink = wikilink, markdownlink
+	return nil
+}
+
+// Links returns all links available in text.
+func (wiki *Wiki) Links(text string) []string {
+
+	// wiki syntax
+	wikilinks := wiki.WikiLinks(text)
+	for i, m := range wikilinks {
+		wikilinks[i] = wiki.ParseWikiLinks(m)
+	}
+
+	// markdown syntax
+	markdownlinks := wiki.MarkdownLinks(text)
+	for i, m := range markdownlinks {
+		markdownlinks[i] = wiki.ParseMarkdownLinks(m)
+	}
+
+	return append(wikilinks, markdownlinks...)
+}
+
+// WikiLinks matches on all vimwiki syntax links in text.
+func (wiki *Wiki) WikiLinks(text string) []string {
+	return wiki.wikilink.FindAllString(text, -1)
+}
+
+// MarkdownLinks matches on all markdown syntax links in text.
+func (wiki *Wiki) MarkdownLinks(text string) []string {
+	return wiki.markdownlink.FindAllString(text, -1)
+}
+
+func (wiki *Wiki) ParseMarkdownLinks(link string) string {
+	idx := strings.Index(link, "(")
+	link = link[idx:]
+	link = strings.Trim(link, "()")
+
+	ext := filepath.Ext(link)
+	if ext != ".md" && ext != ".wiki" {
+		link += ".md"
+	}
+	return link
+}
+
+func (wiki *Wiki) ParseWikiLinks(link string) string {
+	// [[file]] -> dir/file.wiki
+	link = strings.Trim(link, "[]")
+
+	// split of description [[link|description]]
+	idx := strings.Index(link, "|")
+	if idx > 0 {
+		link = link[:idx]
+	}
+
+	ext := filepath.Ext(link)
+	if ext != ".md" && ext != ".wiki" {
+		link += ".wiki"
+	}
+	return link
+}
+
 // Add adds path to the wiki.graph when it contains links to other files.
 //
 // Only the relative paths are considered between the passed path and wiki.root.
 func (wiki *Wiki) Add(path string) error {
+
+	log.Println(path)
 
 	key, err := filepath.Rel(wiki.root, path)
 	if err != nil {
@@ -126,34 +231,16 @@ func (wiki *Wiki) Add(path string) error {
 	}
 	defer file.Close()
 
-	// match [[ ]] to detect links with format: [[link]]
-	re, err := regexp.Compile(`\[\[([^\[\]]*)\]\]`)
-	if err != nil {
-		return err
-	}
-
 	scanner := bufio.NewScanner(file)
+
 	for scanner.Scan() {
-		for _, match := range re.FindAllString(scanner.Text(), -1) {
+		for _, link := range wiki.Links(scanner.Text()) {
 
-			// [[file]] -> dir/file.wiki
-			match = strings.Trim(match, "[]") + ext
-			match = filepath.Join(dir, match)
+			// rename and/or collapse folders
+			key, link = wiki.Remap(dir, key, link)
 
-			// apply remap naming, diary/file.wiki -> diary.wiki
-			for k, v := range wiki.remap {
-				if k == dir {
-					key = v
-				}
-				if strings.Contains(match, k) {
-					match = v
-				}
-			}
-
-			// prevent (possibly many) duplicates
-			if unique(match, wiki.graph[key]) {
-				wiki.graph[key] = append(wiki.graph[key], match)
-			}
+			// insert into the graph
+			wiki.Insert(key, link)
 		}
 	}
 	return scanner.Err()
