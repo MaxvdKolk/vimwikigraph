@@ -1,0 +1,2 @@
+[[baz.md]]
+[link](markdown.md)
