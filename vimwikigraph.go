@@ -175,9 +175,6 @@ func (wiki *Wiki) ParseWikiLinks(link string) string {
 //
 // Only the relative paths are considered between the passed path and wiki.root.
 func (wiki *Wiki) Add(path string) error {
-
-	log.Println(path)
-
 	key, err := filepath.Rel(wiki.root, path)
 	if err != nil {
 		return err
@@ -222,26 +219,42 @@ func (wiki *Wiki) Dot(opts ...dot.GraphOption) *dot.Graph {
 		opt.Apply(graph)
 	}
 
-	for k, val := range wiki.graph {
-		g := graph
+	var a, b dot.Node
 
-		if wiki.cluster {
-			dir, _ := filepath.Split(k)
-			if dir != "" {
-				g = graph.Subgraph(dir, dot.ClusterOption{})
-			}
+	for k, val := range wiki.graph {
+
+		// only draw nodes with connection
+		if len(val) == 0 {
+			continue
+		}
+
+		// insert in subgraph if wiki and in subdirectory
+		// FIXME move into func?
+		dir, _ := filepath.Split(k)
+		if wiki.cluster && dir != "" {
+			subgraph := graph.Subgraph(dir, dot.ClusterOption{})
+			a = subgraph.Node(k)
+		} else {
+			a = graph.Node(k)
 		}
 
 		for _, v := range val {
-			a := g.Node(k)
-			b := g.Node(v)
+			// insert in subgraph if wiki and in subdirectory
+			dir, _ := filepath.Split(v)
+			if wiki.cluster && dir != "" {
+				subgraph := graph.Subgraph(dir, dot.ClusterOption{})
+				b = subgraph.Node(v)
+			} else {
+				b = graph.Node(v)
+			}
 
-			// prevent duplicates
-			if len(g.FindEdges(a, b)) == 0 {
-				g.Edge(a, b)
+			// only insert unique edges
+			if len(graph.FindEdges(a, b)) == 0 {
+				graph.Edge(a, b)
 			}
 		}
 	}
+
 	return graph
 }
 
