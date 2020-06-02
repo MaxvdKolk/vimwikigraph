@@ -104,6 +104,11 @@ func TestMatchParseMarkdownLinks(t *testing.T) {
 			matches: []string{"[link](vimwiki.wiki)"},
 			links:   []string{"vimwiki.wiki"},
 		},
+		match{
+			text:    "![figure](image.png)",
+			matches: []string{"[figure](image.png)"},
+			links:   []string{""},
+		},
 	}
 
 	wiki := Wiki{}

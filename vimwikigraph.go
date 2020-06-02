@@ -115,9 +115,11 @@ func (wiki *Wiki) Links(text string) []string {
 	// markdown syntax
 	markdownlinks := wiki.MarkdownLinks(text)
 	for i, m := range markdownlinks {
-		markdownlinks[i] = wiki.ParseMarkdownLinks(m)
+		link := wiki.ParseMarkdownLinks(m)
+		if link != "" {
+			markdownlinks[i] = link
+		}
 	}
-
 	return append(wikilinks, markdownlinks...)
 }
 
@@ -131,18 +133,27 @@ func (wiki *Wiki) MarkdownLinks(text string) []string {
 	return wiki.markdownlink.FindAllString(text, -1)
 }
 
+// ParseMarkdownLinks extracts the filename from markdown syntax links.
 func (wiki *Wiki) ParseMarkdownLinks(link string) string {
 	idx := strings.Index(link, "(")
 	link = link[idx:]
 	link = strings.Trim(link, "()")
 
 	ext := filepath.Ext(link)
-	if ext != ".md" && ext != ".wiki" {
-		link += ".md"
+	if ext == ".md" || ext == ".wiki" {
+		return link
 	}
-	return link
+
+	// assume it refers to a local markdown file
+	if ext == "" {
+		return link + ".md"
+	}
+
+	// if ext is anything else, we should probably skip the file
+	return ""
 }
 
+// ParseWikiLinks extracts the filename from vimwiki syntax links.
 func (wiki *Wiki) ParseWikiLinks(link string) string {
 	// [[file]] -> dir/file.wiki
 	link = strings.Trim(link, "[]")
