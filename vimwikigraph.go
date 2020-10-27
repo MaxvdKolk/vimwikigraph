@@ -210,10 +210,14 @@ func (wiki *Wiki) Add(path string) error {
 
 // Dot converts wiki.graph into dot.Graph.
 //
+// Only nodes, and their connections, are drawn if their sum of edges
+// is greater than the provided level. For `level = 0` all nodes
+// are inserted.
+//
 // If wiki.cluster == true any nodes that correspond to a subdirectory are
 // inserted in the corresponding subgraph of that subdirectory. By default, the
 // visualisation will highlight these subgraphs.
-func (wiki *Wiki) Dot(opts ...dot.GraphOption) *dot.Graph {
+func (wiki *Wiki) Dot(level int, opts ...dot.GraphOption) *dot.Graph {
 	graph := dot.NewGraph()
 	for _, opt := range opts {
 		opt.Apply(graph)
@@ -223,8 +227,8 @@ func (wiki *Wiki) Dot(opts ...dot.GraphOption) *dot.Graph {
 
 	for k, val := range wiki.graph {
 
-		// only draw nodes with connection
-		if len(val) == 0 {
+		// skip nodes with less edges
+		if len(val) < level {
 			continue
 		}
 
