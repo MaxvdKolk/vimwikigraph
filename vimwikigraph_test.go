@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"testing"
+
+	"github.com/emicklei/dot"
 )
 
 type match struct {
@@ -191,5 +195,40 @@ func TestMatchParseWikiLinks(t *testing.T) {
 				t.Errorf("Expected link: %v, got %v", c.links[i], link)
 			}
 		}
+	}
+}
+
+func TestNodeConnectionLevel(t *testing.T) {
+	os.Chdir(".")
+	dir, _ := os.Executable()
+	t.Log(dir)
+	wiki := newWiki("example", make(map[string]string), false)
+
+	// build 0 < i < 10 entries with each i connections, where the current
+	// nodes are not considered as connections
+	wiki.graph = make(map[string][]string)
+	for i := 0; i < 10; i++ {
+		k := fmt.Sprintf("%d", i)
+		wiki.graph[k] = make([]string, 0, 0)
+		for j := 0; j < i; j++ {
+			wiki.graph[k] = append(wiki.graph[k], fmt.Sprintf("%d00", j))
+		}
+	}
+
+	// level zero: 9 entries + 10 connections: 19 nodes in total
+	// each increment of the level should draw one node less
+	for l := 0; l < 10; l++ {
+		g := wiki.Dot(l, dot.Directed)
+		nconn := len(g.FindNodes())
+		exp := 19 - l
+		if nconn != exp {
+			t.Errorf("For level %v: exp: %v, got %v", l, exp, nconn)
+		}
+	}
+
+	// higher than maximum connectivity should result in zero nodes
+	nconn := len(wiki.Dot(10, dot.Directed).FindNodes())
+	if nconn > 0 {
+		t.Errorf("Expected 0 connections, got %v", nconn)
 	}
 }

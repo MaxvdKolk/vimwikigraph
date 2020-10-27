@@ -26,6 +26,7 @@ func main() {
 
 	cluster := flag.Bool("cluster", false, "cluster nodes in sub directories")
 	diary := flag.Bool("diary", false, "collapse all diary entries under a single `diary.wiki` node")
+	level := flag.Int("l", 1, "draw only edges from nodes with at least level number of edges")
 	flag.Parse()
 
 	// remap any path that contains `diary` into `diary.wiki`
@@ -49,7 +50,7 @@ func main() {
 	}
 
 	// convert to a dot-graph for visualisation
-	g := wiki.Dot(dot.Directed)
+	g := wiki.Dot(*level, dot.Directed)
 	g.Attr("rankdir", "LR")
 	g.Write(os.Stdout)
 }
