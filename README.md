@@ -1,4 +1,5 @@
-## vimwikigraph - visualise vimwiki links using graphviz dot language
+![Go](https://github.com/MaxvdKolk/vimwikigraph/workflows/Go/badge.svg)
+# vimwikigraph
 `vimwikigraph` walks all files in a
 [vimwiki](https://github.com/vimwiki/vimwiki) directory and builds a
 graph between the encountered files and their internal references. The
