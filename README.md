@@ -4,7 +4,7 @@
 [vimwiki](https://github.com/vimwiki/vimwiki) directory and builds a
 graph between the encountered files and their internal references. The
 code supports vimwiki-style links `[[link]]`, `[[link|description]]`
-and markdown-style links `(description)[link]`. The graph is
+and markdown-style links `[description](link)`. The graph is
 converted to the DOT language
 using [`dot`](https://github.com/emicklei/dot). The results can then be
 visualised with [graphviz](https://www.graphviz.org/about/), e.g. using
