@@ -1,5 +1,7 @@
-![Go](https://github.com/MaxvdKolk/vimwikigraph/workflows/Go/badge.svg)
 # vimwikigraph
+
+![Go](https://github.com/MaxvdKolk/vimwikigraph/workflows/Go/badge.svg)
+
 `vimwikigraph` walks all files in a
 [vimwiki](https://github.com/vimwiki/vimwiki) directory and builds a
 graph between the encountered files and their internal references. The
@@ -14,9 +16,11 @@ The graph visualises your notes and their connections, possibly
 providing new insights.
 
 ## Usage
+
 ```
 ./vimwikigraph $HOME/vimwiki | dot -Tpng > test.png && open test.png
 ```
+
 `-diary`: collapse all diary entries under a single node `diary.wiki`
 
 `-cluster`: cluster subdirectories as subgraphs
@@ -26,30 +30,54 @@ inserted with all their edges. Thus, nodes with less than `l` edges can appear
 when they are connected to other nodes that do satisfy the requirement.
 For `-l 0`, all nodes are inserted.
 
+`--ignore REGEX`: ignores any encountered path matching `REGEX`
+
 ## Examples
+
 To illustrate `/example/` contains some `.wiki` files and also a
 diary, `/example/diary/*.wiki`. Running `vimwikigraph` produces the
 following output. All `diary` files are collapse by default into a
 single node. Any connections to and from any diary files are simply
 an arrow point in to, or out of, the diary.
+
 ```
 ./vimwikigraph example | dot -Tpng > example.png
 ```
+
 ![](./doc/example.png)
 
 The `-diary` flag ensures all diary items are shown as nodes.
+
 ```
 ./vimwikigraph example -diary | dot -Tpng > example.png
 ```
+
 ![](./doc/example_diary.png)
 
 The `-cluster` flag adds all diary items to a subgraph.
+
 ```
 ./vimwikigraph example -diary -cluster | dot -Tpng > example.png
 ```
+
 ![](./doc/example_diary_cluster.png)
 
+The `--ignore` allows to filter files by the given regex, e.g. to ignore
+any matches with `alice` or `bob`
+
+```
+./vimwikigraph example -diary -cluster --ignore "alice|bob" | dot -Tpng > example.png
+```
+
+![](./doc/example_ignore_alice_or_bob.png)
+
 ## Installation
+
 ```
 go get github.com/maxvdkolk/vimwikigraph
 ```
+
+## Change log
+
+- 2021/05/31: add `--ignore` flag to ignore any path that matches the provided
+  directory.
