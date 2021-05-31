@@ -13,24 +13,28 @@ type match struct {
 	matches []string
 	links   []string
 	dir     []string
+	ignore  string
 }
 
 func TestMappingCollapse(t *testing.T) {
 	cases := []match{
 		match{
-			text:  "[[diary/link]]",
-			links: []string{"diary"},
-			dir:   []string{"."},
+			text:   "[[diary/link]]",
+			links:  []string{"diary"},
+			dir:    []string{"."},
+			ignore: "",
 		},
 		match{
-			text:  "[[../link]]",
-			links: []string{"link.wiki"},
-			dir:   []string{"diary"},
+			text:   "[[../link]]",
+			links:  []string{"link.wiki"},
+			dir:    []string{"diary"},
+			ignore: "",
 		},
 		match{
-			text:  "[[link]]",
-			links: []string{"diary"},
-			dir:   []string{"diary"},
+			text:   "[[link]]",
+			links:  []string{"diary"},
+			dir:    []string{"diary"},
+			ignore: "",
 		},
 	}
 
@@ -60,17 +64,20 @@ func TestMappingNoCollapse(t *testing.T) {
 			matches: []string{"[[diary/link]]"},
 			links:   []string{"diary/link.wiki"},
 			dir:     []string{"."},
+			ignore:  "",
 		},
 		match{
 			text:    "[[../link]]",
 			matches: []string{"[[../link]]"},
 			links:   []string{"link.wiki"},
 			dir:     []string{"diary.wiki"},
+			ignore:  "",
 		},
 		match{
-			text:  "[[link]]",
-			links: []string{"diary/link.wiki"},
-			dir:   []string{"diary"},
+			text:   "[[link]]",
+			links:  []string{"diary/link.wiki"},
+			dir:    []string{"diary"},
+			ignore: "",
 		},
 	}
 
@@ -97,21 +104,25 @@ func TestMatchParseMarkdownLinks(t *testing.T) {
 			text:    "[link](url)",
 			matches: []string{"[link](url)"},
 			links:   []string{"url.md"},
+			ignore:  "",
 		},
 		match{
 			text:    "[link](url.md)",
 			matches: []string{"[link](url.md)"},
 			links:   []string{"url.md"},
+			ignore:  "",
 		},
 		match{
 			text:    "[link](vimwiki.wiki)",
 			matches: []string{"[link](vimwiki.wiki)"},
 			links:   []string{"vimwiki.wiki"},
+			ignore:  "",
 		},
 		match{
 			text:    "![figure](image.png)",
 			matches: []string{"[figure](image.png)"},
 			links:   []string{""},
+			ignore:  "",
 		},
 	}
 
@@ -153,21 +164,25 @@ func TestMatchParseWikiLinks(t *testing.T) {
 			text:    "[[a]]\n[[b]]",
 			matches: []string{"[[a]]", "[[b]]"},
 			links:   []string{"a.wiki", "b.wiki"},
+			ignore:  "",
 		},
 		match{
 			text:    "[[link|description]]",
 			matches: []string{"[[link|description]]"},
 			links:   []string{"link.wiki"},
+			ignore:  "",
 		},
 		match{
 			text:    "[[link.wiki]]",
 			matches: []string{"[[link.wiki]]"},
 			links:   []string{"link.wiki"},
+			ignore:  "",
 		},
 		match{
 			text:    "[[link.md]]",
 			matches: []string{"[[link.md]]"},
 			links:   []string{"link.md"},
+			ignore:  "",
 		},
 	}
 
@@ -202,7 +217,11 @@ func TestNodeConnectionLevel(t *testing.T) {
 	os.Chdir(".")
 	dir, _ := os.Executable()
 	t.Log(dir)
-	wiki := newWiki("example", make(map[string]string), false)
+	wiki, err := newWiki("example", make(map[string]string), false, "")
+
+	if err != nil {
+		t.Errorf("Expected no error in constructor")
+	}
 
 	// build 0 < i < 10 entries with each i connections, where the current
 	// nodes are not considered as connections
@@ -230,5 +249,15 @@ func TestNodeConnectionLevel(t *testing.T) {
 	nconn := len(wiki.Dot(10, dot.Directed).FindNodes())
 	if nconn > 0 {
 		t.Errorf("Expected 0 connections, got %v", nconn)
+	}
+}
+
+func TestIgnorePaths(t *testing.T) {
+	wiki, err := newWiki("example", make(map[string]string), false, "t*")
+	if err != nil {
+		t.Errorf("Expected no error in constructor")
+	}
+	if !wiki.IgnorePath("test") {
+		t.Errorf("Path should be discarged given the regex")
 	}
 }

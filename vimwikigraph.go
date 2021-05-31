@@ -25,25 +25,30 @@ type Wiki struct {
 	remap map[string]string
 	// Enable clustered plotting of files in sub directories
 	cluster bool
+	// When any path matches this string, it is ignored in the resulting
+	// graphs.
+	ignorePath string
 
 	// Contains all regular expressions to match links
 	wikilink     *regexp.Regexp
 	markdownlink *regexp.Regexp
+	ignored      *regexp.Regexp
 }
 
-func newWiki(dir string, remap map[string]string, cluster bool) *Wiki {
+func newWiki(dir string, remap map[string]string, cluster bool, ignore string) (*Wiki, error) {
 	wiki := Wiki{
-		root:    dir,
-		remap:   remap,
-		graph:   make(map[string][]string),
-		cluster: cluster,
+		root:       dir,
+		remap:      remap,
+		graph:      make(map[string][]string),
+		ignorePath: ignore,
+		cluster:    cluster,
 	}
-	wiki.CompileExpressions()
-	return &wiki
+	err := wiki.CompileExpressions()
+	return &wiki, err
 }
 
 // Walk walks over all directories in wiki.root except for any directory
-// contianed in subDirToSkip.
+// contained in subDirToSkip.
 func (wiki *Wiki) Walk(subDirToSkip []string) error {
 	err := filepath.Walk(wiki.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -57,6 +62,9 @@ func (wiki *Wiki) Walk(subDirToSkip []string) error {
 					return filepath.SkipDir
 				}
 			}
+			return nil
+		}
+		if wiki.IgnorePath(path) {
 			return nil
 		}
 		return wiki.Add(path)
@@ -95,11 +103,22 @@ func (wiki *Wiki) CompileExpressions() error {
 	if err != nil {
 		return err
 	}
+	wiki.wikilink = wikilink
+
 	markdownlink, err := regexp.Compile(markdownref)
 	if err != nil {
 		return err
 	}
-	wiki.wikilink, wiki.markdownlink = wikilink, markdownlink
+	wiki.markdownlink = markdownlink
+
+	if wiki.ignorePath != "" {
+		ignored, err := regexp.Compile(wiki.ignorePath)
+		if err != nil {
+			return err
+		}
+		wiki.ignored = ignored
+	}
+
 	return nil
 }
 
@@ -171,6 +190,17 @@ func (wiki *Wiki) ParseWikiLinks(link string) string {
 	return link
 }
 
+func (wiki *Wiki) IgnorePath(path string) bool {
+	// When no regexes are provided to be ignored, always accpet the files
+	if wiki.ignored == nil {
+		return false
+	}
+
+	// Otherwise, return true if any match with the given regex is observed,
+	// in that case the link should not be added to the graph
+	return wiki.ignored.Match([]byte(path))
+}
+
 // Add adds path to the wiki.graph when it contains links to other files.
 //
 // Only the relative paths are considered between the passed path and wiki.root.
@@ -197,6 +227,10 @@ func (wiki *Wiki) Add(path string) error {
 
 	for scanner.Scan() {
 		for _, link := range wiki.Links(scanner.Text()) {
+			// do not insert links to ignored paths
+			if wiki.IgnorePath(link) {
+				continue
+			}
 
 			// rename and/or collapse folders
 			key, link = wiki.Remap(dir, key, link)
