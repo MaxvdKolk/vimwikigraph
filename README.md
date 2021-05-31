@@ -32,6 +32,8 @@ For `-l 0`, all nodes are inserted.
 
 `--ignore REGEX`: ignores any encountered path matching `REGEX`
 
+Note: any trailing argument are considered directories to be skipped.
+
 ## Examples
 
 To illustrate `/example/` contains some `.wiki` files and also a
@@ -80,4 +82,4 @@ go get github.com/maxvdkolk/vimwikigraph
 ## Change log
 
 - 2021/05/31: add `--ignore` flag to ignore any path that matches the provided
-  directory.
+  regex.
